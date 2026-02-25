@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Embed Camera Examples</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 40px auto; padding: 0 20px; }
+    h1 { margin-bottom: 8px; }
+    p.desc { color: #666; margin-bottom: 32px; }
+    h2 { margin-top: 40px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+    pre {
+      background: #1e1e2e; color: #cdd6f4; padding: 16px; border-radius: 8px;
+      overflow-x: auto; font-size: 0.9rem; line-height: 1.5;
+    }
+    .tag { color: #f38ba8; }
+    .attr { color: #a6e3a1; }
+    .val { color: #f9e2af; }
+    .cmt { color: #6c7086; }
+    .demo { margin: 16px 0; }
+    .demo iframe, .demo video {
+      width: 100%; max-width: 640px; aspect-ratio: 16/9;
+      border: 2px solid #333; border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📹 Cách nhúng Camera vào Website</h1>
+<p class="desc">
+  Thay <code>SERVER_IP</code> bằng IP thực tế của máy chủ MediaMTX.
+  Thay <code>cam1</code> bằng tên path camera trong mediamtx.yml.
+</p>
+
+<!-- ============================================= -->
+<h2>1. WebRTC — iframe (Đơn giản nhất, khuyên dùng)</h2>
+<p>Sử dụng trang player tích hợp sẵn của MediaMTX. Độ trễ ~0.5s.</p>
+
+<pre>
+<span class="cmt">&lt;!-- WebRTC player built-in của MediaMTX --&gt;</span>
+<span class="tag">&lt;iframe</span>
+  <span class="attr">src</span>=<span class="val">"http://SERVER_IP:8889/cam1"</span>
+  <span class="attr">width</span>=<span class="val">"640"</span>
+  <span class="attr">height</span>=<span class="val">"360"</span>
+  <span class="attr">allow</span>=<span class="val">"autoplay"</span>
+  <span class="attr">style</span>=<span class="val">"border: none;"</span>
+<span class="tag">&gt;&lt;/iframe&gt;</span>
+</pre>
+
+<!-- ============================================= -->
+<h2>2. WebRTC — JavaScript API (Nâng cao, tuỳ chỉnh UI)</h2>
+<p>Kết nối trực tiếp qua WHEP API của MediaMTX.</p>
+
+<pre>
+<span class="tag">&lt;video</span> <span class="attr">id</span>=<span class="val">"webrtcVideo"</span> <span class="attr">autoplay</span> <span class="attr">muted</span> <span class="attr">playsinline</span><span class="tag">&gt;&lt;/video&gt;</span>
+
+<span class="tag">&lt;script&gt;</span>
+async function startWebRTC(videoEl, url) {
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.addTransceiver('audio', { direction: 'recvonly' });
+
+  pc.ontrack = (evt) =&gt; {
+    videoEl.srcObject = evt.streams[0];
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+
+  <span class="cmt">// Send offer to MediaMTX WHEP endpoint</span>
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/sdp' },
+    body: pc.localDescription.sdp,
+  });
+
+  const answer = await res.text();
+  await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+}
+
+<span class="cmt">// Usage: replace SERVER_IP and cam1</span>
+const video = document.getElementById('webrtcVideo');
+startWebRTC(video, 'http://SERVER_IP:8889/cam1/whep');
+<span class="tag">&lt;/script&gt;</span>
+</pre>
+
+<!-- ============================================= -->
+<h2>3. HLS — Video tag + HLS.js (Fallback)</h2>
+<p>Tương thích mọi browser. Độ trễ ~1-3s (LL-HLS) hoặc ~5-6s (HLS chuẩn).</p>
+
+<pre>
+<span class="tag">&lt;video</span> <span class="attr">id</span>=<span class="val">"hlsVideo"</span> <span class="attr">autoplay</span> <span class="attr">muted</span> <span class="attr">playsinline</span> <span class="attr">controls</span><span class="tag">&gt;&lt;/video&gt;</span>
+
+<span class="cmt">&lt;!-- HLS.js for Chrome/Firefox. Safari supports HLS natively --&gt;</span>
+<span class="tag">&lt;script</span> <span class="attr">src</span>=<span class="val">"https://cdn.jsdelivr.net/npm/hls.js@latest"</span><span class="tag">&gt;&lt;/script&gt;</span>
+
+<span class="tag">&lt;script&gt;</span>
+const hlsUrl = 'http://SERVER_IP:8888/cam1/index.m3u8';
+const video  = document.getElementById('hlsVideo');
+
+if (video.canPlayType('application/vnd.apple.mpegurl')) {
+  <span class="cmt">// Safari: native HLS</span>
+  video.src = hlsUrl;
+} else if (Hls.isSupported()) {
+  <span class="cmt">// Chrome, Firefox: use HLS.js</span>
+  const hls = new Hls({
+    lowLatencyMode: true,
+    liveSyncDurationCount: 3,
+  });
+  hls.loadSource(hlsUrl);
+  hls.attachMedia(video);
+}
+<span class="tag">&lt;/script&gt;</span>
+</pre>
+
+<!-- ============================================= -->
+<h2>4. HLS — iframe (MediaMTX built-in player)</h2>
+<p>Dùng trang player HLS tích hợp sẵn.</p>
+
+<pre>
+<span class="tag">&lt;iframe</span>
+  <span class="attr">src</span>=<span class="val">"http://SERVER_IP:8888/cam1"</span>
+  <span class="attr">width</span>=<span class="val">"640"</span>
+  <span class="attr">height</span>=<span class="val">"360"</span>
+  <span class="attr">allow</span>=<span class="val">"autoplay"</span>
+  <span class="attr">style</span>=<span class="val">"border: none;"</span>
+<span class="tag">&gt;&lt;/iframe&gt;</span>
+</pre>
+
+<!-- ============================================= -->
+<h2>🔗 URL Reference</h2>
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; margin-top:16px;">
+  <tr style="background:#f0f0f0;">
+    <th>Protocol</th><th>URL Pattern</th><th>Latency</th><th>Use Case</th>
+  </tr>
+  <tr>
+    <td><strong>WebRTC</strong></td>
+    <td><code>http://SERVER_IP:8889/cam1</code></td>
+    <td>~0.5s</td>
+    <td>Live monitoring, dashboard</td>
+  </tr>
+  <tr>
+    <td><strong>WebRTC WHEP</strong></td>
+    <td><code>http://SERVER_IP:8889/cam1/whep</code></td>
+    <td>~0.5s</td>
+    <td>Custom JS player</td>
+  </tr>
+  <tr>
+    <td><strong>HLS</strong></td>
+    <td><code>http://SERVER_IP:8888/cam1</code></td>
+    <td>~1-3s</td>
+    <td>Fallback, mobile, Safari</td>
+  </tr>
+  <tr>
+    <td><strong>HLS m3u8</strong></td>
+    <td><code>http://SERVER_IP:8888/cam1/index.m3u8</code></td>
+    <td>~1-3s</td>
+    <td>Custom video player</td>
+  </tr>
+  <tr>
+    <td><strong>RTSP</strong></td>
+    <td><code>rtsp://SERVER_IP:8554/cam1</code></td>
+    <td>~0.3s</td>
+    <td>VLC, FFmpeg, NVR</td>
+  </tr>
+  <tr>
+    <td><strong>RTMP</strong></td>
+    <td><code>rtmp://SERVER_IP:1935/cam1</code></td>
+    <td>~1s</td>
+    <td>OBS, FFmpeg</td>
+  </tr>
+</table>
+
+</body>
+</html>

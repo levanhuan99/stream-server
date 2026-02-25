@@ -1,0 +1,166 @@
+###############################################
+# MediaMTX Configuration for CCTV Streaming
+# Documentation: https://github.com/bluenviron/mediamtx
+###############################################
+
+# ==========================================
+# Global Settings
+# ==========================================
+logLevel: info
+logDestinations: [stdout]
+
+# Timeouts
+readTimeout: 10s
+writeTimeout: 10s
+writeQueueSize: 512
+udpMaxPayloadSize: 1452
+
+# ==========================================
+# Authentication
+# ==========================================
+# Default: allow all reads without auth, restrict publish to localhost
+authMethod: internal
+authInternalUsers:
+  # Allow anyone to READ streams (view cameras)
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+        path:
+      - action: playback
+        path:
+  # Allow API/metrics from localhost + Docker host network
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1', '172.16.0.0/12', '192.168.64.0/20']
+    permissions:
+      - action: api
+      - action: metrics
+      - action: pprof
+  # Allow publishing from localhost + Docker host network
+  # (MediaMTX pulls from cameras internally; FFmpeg pushes from Mac host)
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1', '172.16.0.0/12', '192.168.64.0/20']
+    permissions:
+      - action: publish
+        path:
+
+# ==========================================
+# Control API (for health checks & management)
+# ==========================================
+api: true
+apiAddress: :9997
+
+# ==========================================
+# RTSP Server
+# ==========================================
+rtsp: true
+rtspAddress: :8554
+rtspTransports: [tcp]
+# TCP-only is more reliable for pulling from cameras over network
+
+# ==========================================
+# RTMP Server (optional, for OBS/FFmpeg push)
+# ==========================================
+rtmp: true
+rtmpAddress: :1935
+
+# ==========================================
+# HLS Server (fallback for browsers)
+# ==========================================
+hls: true
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+# Low-Latency HLS: ~1-2s delay, good fallback for Safari & older browsers
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+# Always keep HLS muxer running to avoid initial delay
+hlsAlwaysRemux: true
+hlsMuxerCloseAfter: 60s
+
+# ==========================================
+# WebRTC Server (PRIMARY - lowest latency)
+# ==========================================
+webrtc: true
+webrtcAddress: :8889
+webrtcAllowOrigins: ['*']
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: ''
+webrtcIPsFromInterfaces: true
+webrtcIPsFromInterfacesList: []
+# If behind NAT, uncomment and add your public IP:
+# webrtcAdditionalHosts: ['YOUR_PUBLIC_IP']
+# STUN server for NAT traversal
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+
+# ==========================================
+# SRT Server (optional)
+# ==========================================
+srt: true
+srtAddress: :8890
+
+# ==========================================
+# Metrics (Prometheus-compatible)
+# ==========================================
+metrics: true
+metricsAddress: :9998
+
+# ==========================================
+# Path Defaults
+# ==========================================
+pathDefaults:
+  # Pull from source only when someone is watching (saves bandwidth)
+  sourceOnDemand: false
+  # Wait up to 10s for source to connect
+  sourceOnDemandStartTimeout: 10s
+  sourceOnDemandCloseAfter: 10s
+  # Use TCP transport for pulling RTSP streams (more reliable)
+  rtspTransport: tcp
+  # No reader limit
+  maxReaders: 0
+
+# ==========================================
+# Camera Paths
+# ==========================================
+# Each path defines a camera stream that MediaMTX will pull via RTSP
+# and re-publish on all protocols (RTSP, HLS, WebRTC, etc.)
+#
+# HOW TO ACCESS EACH CAMERA:
+#   WebRTC:  http://<SERVER_IP>:8889/<path_name>
+#   HLS:     http://<SERVER_IP>:8888/<path_name>
+#   RTSP:    rtsp://<SERVER_IP>:8554/<path_name>
+#
+# IMPORTANT: Replace the RTSP URLs below with your actual camera URLs
+# ==========================================
+
+paths:
+  # ---- Camera 1 ----
+  cam1:
+    source: rtsp://admin:your_password@192.168.1.101:554/Streaming/Channels/101
+    # sourceOnDemand: true  # Uncomment to pull only when someone is watching
+
+  # ---- Camera 2 ----
+  cam2:
+    source: rtsp://admin:your_password@192.168.1.102:554/Streaming/Channels/101
+
+  # ---- Camera 3 ----
+  cam3:
+    source: rtsp://admin:your_password@192.168.1.103:554/Streaming/Channels/101
+
+  # ---- Example: Dahua camera ----
+  # cam_dahua:
+  #   source: rtsp://admin:password@192.168.1.200:554/cam/realmonitor?channel=1&subtype=0
+
+  # ---- Example: Generic camera ----
+  # cam_generic:
+  #   source: rtsp://user:pass@192.168.1.201:554/stream1
+
+  # ---- Catch-all: allow dynamic publishing from external sources ----
+  all_others:
+    source: publisher

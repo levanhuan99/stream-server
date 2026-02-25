@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CCTV Live Viewer</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card-bg: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e4e4e7;
+      --text-muted: #8b8d97;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --success: #22c55e;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    header h1::before {
+      content: "🔴";
+      font-size: 0.75rem;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .controls label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .controls select, .controls input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .controls button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .controls button:hover { background: var(--accent-hover); }
+
+    .grid {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .grid.cols-1 { grid-template-columns: 1fr; }
+    .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .cam-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .cam-card .cam-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.3);
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+    }
+
+    .cam-card .cam-name {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .cam-card .cam-status {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-weight: 500;
+    }
+
+    .cam-status.online  { background: var(--success); color: #000; }
+    .cam-status.offline { background: var(--danger);  color: #fff; }
+    .cam-status.loading { background: #f59e0b;        color: #000; }
+
+    .cam-card .video-container {
+      position: relative;
+      width: 100%;
+      padding-top: 56.25%; /* 16:9 */
+      background: #000;
+    }
+
+    .cam-card iframe,
+    .cam-card video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .cam-card .cam-footer {
+      padding: 8px 14px;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .cam-footer a {
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 4px 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .cam-footer a:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h2 { margin-bottom: 8px; }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr !important; }
+      header { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>CCTV Live Viewer</h1>
+  <div class="controls">
+    <label for="protocol">Protocol:</label>
+    <select id="protocol" onchange="reloadAll()">
+      <option value="webrtc" selected>WebRTC (Low Latency)</option>
+      <option value="hls">HLS (Compatibility)</option>
+    </select>
+
+    <label for="cols">Grid:</label>
+    <select id="cols" onchange="updateGrid()">
+      <option value="1" selected>1×1</option>
+      <option value="2">2×2</option>
+      <option value="3">3×3</option>
+      <option value="4">4×4</option>
+    </select>
+
+    <label for="serverIp">Server:</label>
+    <input id="serverIp" type="text" placeholder="192.168.1.100"
+           value="" style="width:140px" onchange="reloadAll()" />
+
+    <button onclick="reloadAll()">⟳ Refresh</button>
+  </div>
+</header>
+
+<div class="grid cols-2" id="grid"></div>
+
+<script>
+  // =======================================================
+  //  CONFIGURATION — Edit cameras here
+  // =======================================================
+  const CAMERAS = [
+    { name: 'MacBook Camera',           path: 'macbook' },
+    // Uncomment below when you have real CCTV cameras configured in mediamtx.yml:
+    // { name: 'Camera 1 - Sảnh chính', path: 'cam1' },
+    // { name: 'Camera 2 - Bãi xe',     path: 'cam2' },
+    // { name: 'Camera 3 - Hành lang',  path: 'cam3' },
+  ];
+
+  const PORTS = { webrtc: 8889, hls: 8888, rtsp: 8554 };
+
+  // =======================================================
+  //  Functions
+  // =======================================================
+  function getServer() {
+    const input = document.getElementById('serverIp').value.trim();
+    return input || window.location.hostname || 'localhost';
+  }
+
+  function getProtocol() {
+    return document.getElementById('protocol').value;
+  }
+
+  function updateGrid() {
+    const cols = document.getElementById('cols').value;
+    const grid = document.getElementById('grid');
+    grid.className = `grid cols-${cols}`;
+  }
+
+  function buildUrl(cam, protocol) {
+    const server = getServer();
+    if (protocol === 'webrtc') {
+      // MediaMTX built-in WebRTC player page
+      return `http://${server}:${PORTS.webrtc}/${cam.path}`;
+    } else {
+      // HLS stream URL
+      return `http://${server}:${PORTS.hls}/${cam.path}`;
+    }
+  }
+
+  function createCamCard(cam) {
+    const protocol = getProtocol();
+    const url = buildUrl(cam, protocol);
+    const server = getServer();
+
+    const card = document.createElement('div');
+    card.className = 'cam-card';
+    card.innerHTML = `
+      <div class="cam-header">
+        <span class="cam-name">${cam.name}</span>
+        <span class="cam-status loading" id="status-${cam.path}">Connecting...</span>
+      </div>
+      <div class="video-container">
+        ${protocol === 'webrtc'
+          ? `<iframe src="${url}" allow="autoplay" id="frame-${cam.path}"></iframe>`
+          : `<video id="video-${cam.path}" autoplay muted playsinline></video>`
+        }
+      </div>
+      <div class="cam-footer">
+        <a href="http://${server}:${PORTS.webrtc}/${cam.path}" target="_blank">WebRTC ↗</a>
+        <a href="http://${server}:${PORTS.hls}/${cam.path}" target="_blank">HLS ↗</a>
+        <a href="#" onclick="copyText('rtsp://${server}:${PORTS.rtsp}/${cam.path}'); return false;">Copy RTSP</a>
+      </div>
+    `;
+
+    // For HLS: use native <video> with HLS.js fallback
+    if (protocol === 'hls') {
+      setTimeout(() => initHLS(cam.path, `http://${server}:${PORTS.hls}/${cam.path}/index.m3u8`), 100);
+    }
+
+    // For WebRTC: check iframe loaded
+    if (protocol === 'webrtc') {
+      setTimeout(() => {
+        const statusEl = document.getElementById(`status-${cam.path}`);
+        if (statusEl) {
+          statusEl.textContent = 'Online';
+          statusEl.className = 'cam-status online';
+        }
+      }, 3000);
+    }
+
+    return card;
+  }
+
+  function initHLS(path, hlsUrl) {
+    const video = document.getElementById(`video-${path}`);
+    const statusEl = document.getElementById(`status-${path}`);
+    if (!video) return;
+
+    // Native HLS (Safari)
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = hlsUrl;
+      video.addEventListener('loadeddata', () => {
+        statusEl.textContent = 'Online';
+        statusEl.className = 'cam-status online';
+      });
+      video.addEventListener('error', () => {
+        statusEl.textContent = 'Offline';
+        statusEl.className = 'cam-status offline';
+      });
+      return;
+    }
+
+    // HLS.js fallback (Chrome, Firefox)
+    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+      const hls = new Hls({
+        lowLatencyMode: true,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 5,
+      });
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play();
+        statusEl.textContent = 'Online';
+        statusEl.className = 'cam-status online';
+      });
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal) {
+          statusEl.textContent = 'Offline';
+          statusEl.className = 'cam-status offline';
+        }
+      });
+    } else {
+      statusEl.textContent = 'Unsupported';
+      statusEl.className = 'cam-status offline';
+    }
+  }
+
+  function reloadAll() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    if (CAMERAS.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state">
+          <h2>No cameras configured</h2>
+          <p>Edit the CAMERAS array in this file to add your camera paths.</p>
+        </div>`;
+      return;
+    }
+    CAMERAS.forEach(cam => grid.appendChild(createCamCard(cam)));
+    updateGrid();
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => alert('Copied: ' + text));
+  }
+
+  // Auto-detect server IP from current URL
+  window.addEventListener('DOMContentLoaded', () => {
+    const serverInput = document.getElementById('serverIp');
+    if (!serverInput.value) {
+      const host = window.location.hostname;
+      // file:// protocol gives empty hostname — default to localhost
+      serverInput.value = (!host || host === 'localhost') ? '127.0.0.1' : host;
+    }
+    reloadAll();
+  });
+</script>
+
+<!-- HLS.js for non-Safari browsers (only needed for HLS mode) -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+</body>
+</html>
