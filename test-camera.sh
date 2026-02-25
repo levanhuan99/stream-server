@@ -6,27 +6,28 @@
 
 STREAM_NAME="${1:-macbook}"
 SERVER="localhost"
-RTMP_PORT=1935
+RTSP_PORT=8554
 
 echo "============================================"
 echo "  📹 MacBook Camera → MediaMTX Test Stream"
 echo "============================================"
 echo ""
 echo "  Stream name : ${STREAM_NAME}"
-echo "  Pushing to  : rtmp://${SERVER}:${RTMP_PORT}/${STREAM_NAME}"
+echo "  Pushing to  : rtsp://${SERVER}:${RTSP_PORT}/${STREAM_NAME}"
 echo ""
 echo "  View stream:"
 echo "    WebRTC : http://${SERVER}:8889/${STREAM_NAME}"
 echo "    HLS    : http://${SERVER}:8888/${STREAM_NAME}"
-echo "    RTSP   : rtsp://${SERVER}:8554/${STREAM_NAME}"
+echo "    RTSP   : rtsp://${SERVER}:${RTSP_PORT}/${STREAM_NAME}"
 echo ""
 echo "  Press Ctrl+C to stop"
 echo "============================================"
 echo ""
 
 # FFmpeg: capture FaceTime camera (device 0) + microphone (device 0)
-# Push to MediaMTX via RTMP
+# Push to MediaMTX via RTSP (supports Opus audio, unlike RTMP which only supports AAC)
 # -pix_fmt yuv420p is required for WebRTC compatibility (422 is not supported)
+# -c:a libopus is required for WebRTC audio (AAC is skipped by WebRTC)
 ffmpeg -f avfoundation \
   -framerate 30 \
   -video_size 1280x720 \
@@ -41,8 +42,9 @@ ffmpeg -f avfoundation \
   -maxrate 2500k \
   -bufsize 5000k \
   -g 60 \
-  -c:a aac \
+  -c:a libopus \
   -b:a 128k \
-  -ar 44100 \
-  -f flv \
-  "rtmp://${SERVER}:${RTMP_PORT}/${STREAM_NAME}"
+  -ar 48000 \
+  -f rtsp \
+  -rtsp_transport tcp \
+  "rtsp://${SERVER}:${RTSP_PORT}/${STREAM_NAME}"

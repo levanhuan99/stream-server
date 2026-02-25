@@ -272,6 +272,32 @@
       font-size: 0.85rem;
     }
 
+    .btn-mute {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      backdrop-filter: blur(4px);
+    }
+
+    .btn-mute:hover {
+      background: rgba(59, 130, 246, 0.7);
+      border-color: var(--accent);
+      transform: scale(1.1);
+    }
+
     .cam-footer {
       padding: 8px 12px;
       display: flex;
@@ -403,6 +429,7 @@ let cameras = [];
 let serverHost = window.location.hostname || 'localhost';
 let ports = { webrtc: '8889', hls: '8888', rtsp: '8554' };
 let refreshTimer = null;
+let muteState = {}; // Track mute state per camera: { camName: true/false }
 
 // ============================================================
 // API Functions
@@ -521,9 +548,12 @@ function renderGrid() {
 }
 
 function buildCardHtml(cam, protocol) {
-  var webrtcUrl = 'http://' + serverHost + ':' + ports.webrtc + '/' + cam.name + '/';
-  var hlsUrl = 'http://' + serverHost + ':' + ports.hls + '/' + cam.name + '/';
+  var isMuted = muteState[cam.name] !== false; // default muted=true
+  var mutedParam = isMuted ? 'true' : 'false';
+  var webrtcUrl = 'http://' + serverHost + ':' + ports.webrtc + '/' + cam.name + '/?muted=' + mutedParam + '&controls=true';
+  var hlsUrl = 'http://' + serverHost + ':' + ports.hls + '/' + cam.name + '/?muted=' + mutedParam + '&controls=true';
   var rtspUrl = 'rtsp://' + serverHost + ':' + ports.rtsp + '/' + cam.name;
+  var muteIcon = isMuted ? '🔇' : '🔊';
 
   var videoHtml;
   if (cam.status === 'online') {
@@ -532,6 +562,7 @@ function buildCardHtml(cam, protocol) {
     } else {
       videoHtml = '<iframe src="' + hlsUrl + '" allow="autoplay; fullscreen"></iframe>';
     }
+    videoHtml += '<button class="btn-mute" onclick="toggleMute(\'' + cam.name + '\')" title="' + (isMuted ? 'Unmute' : 'Mute') + '">' + muteIcon + '</button>';
   } else if (cam.status === 'connecting') {
     videoHtml = '<div class="placeholder">⏳ Connecting to stream...</div>';
   } else {
@@ -605,13 +636,17 @@ function updateGrid() {
       if (!videoContainer) return;
 
       if (newStatus === 'online') {
-        var webrtcUrl = 'http://' + serverHost + ':' + ports.webrtc + '/' + cam.name + '/';
-        var hlsUrl = 'http://' + serverHost + ':' + ports.hls + '/' + cam.name + '/';
+        var isMuted = muteState[cam.name] !== false;
+        var mutedParam = isMuted ? 'true' : 'false';
+        var webrtcUrl = 'http://' + serverHost + ':' + ports.webrtc + '/' + cam.name + '/?muted=' + mutedParam + '&controls=true';
+        var hlsUrl = 'http://' + serverHost + ':' + ports.hls + '/' + cam.name + '/?muted=' + mutedParam + '&controls=true';
         var streamUrl = protocol === 'webrtc' ? webrtcUrl : hlsUrl;
+        var muteIcon = isMuted ? '🔇' : '🔊';
         // Only replace if there's no iframe or iframe src is wrong
         var existingIframe = videoContainer.querySelector('iframe');
         if (!existingIframe) {
-          videoContainer.innerHTML = '<iframe src="' + streamUrl + '" allow="autoplay; fullscreen"></iframe>';
+          videoContainer.innerHTML = '<iframe src="' + streamUrl + '" allow="autoplay; fullscreen"></iframe>' +
+            '<button class="btn-mute" onclick="toggleMute(\'' + cam.name + '\')" title="' + (isMuted ? 'Unmute' : 'Mute') + '">' + muteIcon + '</button>';
         }
       } else if (newStatus === 'connecting') {
         videoContainer.innerHTML = '<div class="placeholder">⏳ Connecting to stream...</div>';
@@ -648,6 +683,33 @@ function escapeHtml(str) {
 function truncate(str, len) {
   if (!str) return '';
   return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+function toggleMute(camName) {
+  var isMuted = muteState[camName] !== false; // current state (default muted)
+  muteState[camName] = !isMuted; // flip
+  var nowMuted = muteState[camName];
+
+  var card = document.querySelector('.cam-card[data-name="' + camName + '"]');
+  if (!card) return;
+
+  var videoContainer = card.querySelector('.cam-video');
+  var iframe = videoContainer ? videoContainer.querySelector('iframe') : null;
+  var btn = videoContainer ? videoContainer.querySelector('.btn-mute') : null;
+
+  if (iframe) {
+    // Update iframe src with new muted param
+    var url = new URL(iframe.src);
+    url.searchParams.set('muted', nowMuted ? 'true' : 'false');
+    iframe.src = url.toString();
+  }
+
+  if (btn) {
+    btn.textContent = nowMuted ? '🔇' : '🔊';
+    btn.title = nowMuted ? 'Unmute' : 'Mute';
+  }
+
+  showToast(nowMuted ? 'Muted: ' + camName : '🔊 Unmuted: ' + camName, 'success');
 }
 
 function copyText(text) {
