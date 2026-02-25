@@ -1,20 +1,17 @@
-version: "3.9"
-
 services:
+  # ============================================
+  # MediaMTX — RTSP/WebRTC/HLS Streaming Server
+  # ============================================
   mediamtx:
     image: bluenviron/mediamtx:latest
     container_name: mediamtx
     restart: unless-stopped
-    # NOTE: network_mode: host does NOT work on Docker Desktop (macOS/Windows).
-    # Use bridge mode with port mappings instead.
-    # On Linux production servers, you can switch to network_mode: host for WebRTC.
-    # network_mode: host
     ports:
       - "${RTSP_PORT:-8554}:8554"       # RTSP
       - "${HLS_PORT:-8888}:8888"        # HLS
       - "${WEBRTC_PORT:-8889}:8889"     # WebRTC HTTP signaling
       - "8189:8189/udp"                 # WebRTC ICE/UDP
-      - "${API_PORT:-9997}:9997"        # Control API
+      - "9997:9997"                     # Control API (internal)
       - "9998:9998"                     # Metrics
       - "1935:1935"                     # RTMP
       - "8890:8890/udp"                 # SRT
@@ -28,9 +25,42 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    # NOTE: MediaMTX uses a minimal scratch image with no shell utilities.
+    # The Go API handles retry logic to wait for MediaMTX readiness.
+
+  # ============================================
+  # Go API — Camera Stream Management
+  # ============================================
+  api:
+    build: ./api
+    container_name: stream-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      - LISTEN_ADDR=:8080
+      - MEDIAMTX_API_URL=http://mediamtx:9997
+      - WEBRTC_PORT=${WEBRTC_PORT:-8889}
+      - HLS_PORT=${HLS_PORT:-8888}
+      - RTSP_PORT=${RTSP_PORT:-8554}
+      - STORE_PATH=/data/streams.json
+      - WEB_DIR=/app/web
+    volumes:
+      - ./web:/app/web:ro
+      - api-data:/data
+    depends_on:
+      - mediamtx
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:${API_PORT:-9997}/v3/paths/list"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  api-data:

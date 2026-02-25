@@ -3,18 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CCTV Live Viewer</title>
+  <title>CCTV Stream Manager</title>
   <style>
     :root {
       --bg: #0f1117;
       --card-bg: #1a1d27;
+      --panel-bg: #161921;
       --border: #2a2d3a;
       --text: #e4e4e7;
       --text-muted: #8b8d97;
       --accent: #3b82f6;
       --accent-hover: #2563eb;
       --danger: #ef4444;
+      --danger-hover: #dc2626;
       --success: #22c55e;
+      --warning: #f59e0b;
+      --radius: 8px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -26,66 +30,177 @@
       min-height: 100vh;
     }
 
+    /* ===== Header ===== */
     header {
       background: var(--card-bg);
       border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
+      padding: 12px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
     header h1 {
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    header h1::before { content: "🔴"; font-size: 0.7rem; }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .controls label { font-size: 0.8rem; color: var(--text-muted); }
+
+    .controls select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 8px;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+    }
+
+    /* ===== Add Camera Panel ===== */
+    .add-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin: 16px 16px 0;
+      padding: 16px 20px;
+    }
+
+    .add-panel h2 {
+      font-size: 0.95rem;
+      font-weight: 500;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
 
-    header h1::before {
-      content: "🔴";
-      font-size: 0.75rem;
-    }
-
-    .controls {
+    .add-form {
       display: flex;
-      gap: 12px;
-      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
     }
 
-    .controls label {
-      font-size: 0.85rem;
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .form-group label {
+      font-size: 0.75rem;
       color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .controls select, .controls input {
+    .form-group input {
       background: var(--bg);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 8px 12px;
+      border-radius: var(--radius);
       font-size: 0.85rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      outline: none;
+      transition: border 0.2s;
     }
 
-    .controls button {
-      background: var(--accent);
-      color: white;
+    .form-group input:focus { border-color: var(--accent); }
+    .form-group input::placeholder { color: #555; }
+
+    .form-group.url { flex: 1; min-width: 300px; }
+    .form-group.name { min-width: 160px; }
+
+    .btn {
+      padding: 8px 20px;
       border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
+      border-radius: var(--radius);
       cursor: pointer;
       font-size: 0.85rem;
       font-weight: 500;
-      transition: background 0.2s;
+      transition: all 0.2s;
+      white-space: nowrap;
     }
 
-    .controls button:hover { background: var(--accent-hover); }
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 4px 10px; font-size: 0.75rem; }
+    .btn-danger:hover { background: var(--danger); color: white; }
+
+    .add-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .add-hint code {
+      background: var(--bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+    }
+
+    .add-error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ===== Stats Bar ===== */
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      padding: 10px 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      align-items: center;
+    }
+
+    .stats-bar .stat {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .stats-bar .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .stats-bar .dot.online { background: var(--success); }
+    .stats-bar .dot.connecting { background: var(--warning); }
+    .stats-bar .dot.offline { background: var(--danger); }
+
+    /* ===== Camera Grid ===== */
     .grid {
       display: grid;
       gap: 12px;
-      padding: 16px;
+      padding: 0 16px 16px;
     }
 
     .grid.cols-1 { grid-template-columns: 1fr; }
@@ -96,287 +211,507 @@
     .cam-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: var(--radius);
       overflow: hidden;
       position: relative;
     }
 
-    .cam-card .cam-header {
+    .cam-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 14px;
-      background: rgba(0,0,0,0.3);
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 10;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.2);
     }
 
-    .cam-card .cam-name {
+    .cam-name {
       font-size: 0.85rem;
-      font-weight: 600;
-    }
-
-    .cam-card .cam-status {
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: 9999px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .cam-status.online  { background: var(--success); color: #000; }
-    .cam-status.offline { background: var(--danger);  color: #fff; }
-    .cam-status.loading { background: #f59e0b;        color: #000; }
+    .cam-name .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
 
-    .cam-card .video-container {
+    .cam-name .status-dot.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+    .cam-name .status-dot.connecting { background: var(--warning); animation: pulse 1.5s ease-in-out infinite; }
+    .cam-name .status-dot.offline { background: var(--danger); }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .cam-video {
       position: relative;
       width: 100%;
       padding-top: 56.25%; /* 16:9 */
       background: #000;
     }
 
-    .cam-card iframe,
-    .cam-card video {
+    .cam-video iframe, .cam-video video {
       position: absolute;
-      top: 0;
-      left: 0;
+      top: 0; left: 0;
       width: 100%;
       height: 100%;
       border: none;
     }
 
-    .cam-card .cam-footer {
-      padding: 8px 14px;
+    .cam-video .placeholder {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
-      gap: 8px;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
     }
 
-    .cam-footer a {
-      font-size: 0.75rem;
-      color: var(--accent);
-      text-decoration: none;
-      padding: 4px 8px;
-      border: 1px solid var(--border);
+    .cam-footer {
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .cam-links {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .cam-links a, .cam-links span {
+      font-size: 0.7rem;
+      padding: 3px 8px;
       border-radius: 4px;
+      text-decoration: none;
+      background: var(--bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      cursor: pointer;
       transition: all 0.2s;
     }
 
-    .cam-footer a:hover {
-      background: var(--accent);
-      color: #fff;
+    .cam-links a:hover, .cam-links span:hover {
+      color: var(--accent);
+      border-color: var(--accent);
     }
 
+    /* ===== Empty State ===== */
     .empty-state {
       text-align: center;
-      padding: 80px 20px;
+      padding: 60px 20px;
       color: var(--text-muted);
     }
 
-    .empty-state h2 { margin-bottom: 8px; }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--text); }
+    .empty-state p { font-size: 0.85rem; max-width: 400px; margin: 0 auto; }
 
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: var(--radius);
+      font-size: 0.85rem;
+      z-index: 1000;
+      animation: slideIn 0.3s ease;
+      max-width: 400px;
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ===== Responsive ===== */
     @media (max-width: 768px) {
-      .grid { grid-template-columns: 1fr !important; }
-      header { flex-direction: column; gap: 12px; }
+      header { padding: 10px 12px; }
+      .add-panel { margin: 10px 10px 0; padding: 12px; }
+      .grid { padding: 0 10px 10px; }
+      .add-form { flex-direction: column; }
+      .form-group.url, .form-group.name { min-width: unset; width: 100%; }
     }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>CCTV Live Viewer</h1>
-  <div class="controls">
-    <label for="protocol">Protocol:</label>
-    <select id="protocol" onchange="reloadAll()">
-      <option value="webrtc" selected>WebRTC (Low Latency)</option>
-      <option value="hls">HLS (Compatibility)</option>
-    </select>
+  <!-- ===== Header ===== -->
+  <header>
+    <h1>CCTV Stream Manager</h1>
+    <div class="controls">
+      <label>Protocol</label>
+      <select id="protocolSelect">
+        <option value="webrtc">WebRTC</option>
+        <option value="hls">HLS</option>
+      </select>
+      <label>Grid</label>
+      <select id="gridSelect">
+        <option value="1">1×1</option>
+        <option value="2" selected>2×2</option>
+        <option value="3">3×3</option>
+        <option value="4">4×4</option>
+      </select>
+    </div>
+  </header>
 
-    <label for="cols">Grid:</label>
-    <select id="cols" onchange="updateGrid()">
-      <option value="1" selected>1×1</option>
-      <option value="2">2×2</option>
-      <option value="3">3×3</option>
-      <option value="4">4×4</option>
-    </select>
-
-    <label for="serverIp">Server:</label>
-    <input id="serverIp" type="text" placeholder="192.168.1.100"
-           value="" style="width:140px" onchange="reloadAll()" />
-
-    <button onclick="reloadAll()">⟳ Refresh</button>
+  <!-- ===== Add Camera Panel ===== -->
+  <div class="add-panel">
+    <h2>📹 Add Camera</h2>
+    <div class="add-form" id="addForm">
+      <div class="form-group url">
+        <label>RTSP URL</label>
+        <input type="text" id="inputUrl" placeholder="rtsp://user:pass@192.168.1.100:554/stream" autocomplete="off" />
+      </div>
+      <div class="form-group name">
+        <label>Name (optional)</label>
+        <input type="text" id="inputName" placeholder="lobby-cam" autocomplete="off" />
+      </div>
+      <button class="btn btn-primary" id="btnAdd" onclick="addCamera()">+ Add</button>
+    </div>
+    <div class="add-hint">
+      Example: <code>rtsp://admin:pass@192.168.1.101:554/Streaming/Channels/101</code> &nbsp;|&nbsp;
+      IDIS: <code>rtsp://IP:PORT/idis?trackID=1&amp;streamID=0&amp;audio=0</code>
+    </div>
+    <div class="add-error" id="addError"></div>
   </div>
-</header>
 
-<div class="grid cols-2" id="grid"></div>
+  <!-- ===== Stats Bar ===== -->
+  <div class="stats-bar" id="statsBar">
+    <span>Loading...</span>
+  </div>
+
+  <!-- ===== Camera Grid ===== -->
+  <div class="grid cols-2" id="cameraGrid"></div>
 
 <script>
-  // =======================================================
-  //  CONFIGURATION — Edit cameras here
-  // =======================================================
-  const CAMERAS = [
-    { name: 'MacBook Camera',           path: 'macbook' },
-    // Uncomment below when you have real CCTV cameras configured in mediamtx.yml:
-    // { name: 'Camera 1 - Sảnh chính', path: 'cam1' },
-    // { name: 'Camera 2 - Bãi xe',     path: 'cam2' },
-    // { name: 'Camera 3 - Hành lang',  path: 'cam3' },
-  ];
+// ============================================================
+// State
+// ============================================================
+let cameras = [];
+let serverHost = window.location.hostname || 'localhost';
+let ports = { webrtc: '8889', hls: '8888', rtsp: '8554' };
+let refreshTimer = null;
 
-  const PORTS = { webrtc: 8889, hls: 8888, rtsp: 8554 };
+// ============================================================
+// API Functions
+// ============================================================
+const API_BASE = window.location.origin;
 
-  // =======================================================
-  //  Functions
-  // =======================================================
-  function getServer() {
-    const input = document.getElementById('serverIp').value.trim();
-    return input || window.location.hostname || 'localhost';
-  }
+async function apiGet(url) {
+  const resp = await fetch(API_BASE + url);
+  const data = await resp.json();
+  if (!data.success) throw new Error(data.error || 'API error');
+  return data.data;
+}
 
-  function getProtocol() {
-    return document.getElementById('protocol').value;
-  }
-
-  function updateGrid() {
-    const cols = document.getElementById('cols').value;
-    const grid = document.getElementById('grid');
-    grid.className = `grid cols-${cols}`;
-  }
-
-  function buildUrl(cam, protocol) {
-    const server = getServer();
-    if (protocol === 'webrtc') {
-      // MediaMTX built-in WebRTC player page
-      return `http://${server}:${PORTS.webrtc}/${cam.path}`;
-    } else {
-      // HLS stream URL
-      return `http://${server}:${PORTS.hls}/${cam.path}`;
-    }
-  }
-
-  function createCamCard(cam) {
-    const protocol = getProtocol();
-    const url = buildUrl(cam, protocol);
-    const server = getServer();
-
-    const card = document.createElement('div');
-    card.className = 'cam-card';
-    card.innerHTML = `
-      <div class="cam-header">
-        <span class="cam-name">${cam.name}</span>
-        <span class="cam-status loading" id="status-${cam.path}">Connecting...</span>
-      </div>
-      <div class="video-container">
-        ${protocol === 'webrtc'
-          ? `<iframe src="${url}" allow="autoplay" id="frame-${cam.path}"></iframe>`
-          : `<video id="video-${cam.path}" autoplay muted playsinline></video>`
-        }
-      </div>
-      <div class="cam-footer">
-        <a href="http://${server}:${PORTS.webrtc}/${cam.path}" target="_blank">WebRTC ↗</a>
-        <a href="http://${server}:${PORTS.hls}/${cam.path}" target="_blank">HLS ↗</a>
-        <a href="#" onclick="copyText('rtsp://${server}:${PORTS.rtsp}/${cam.path}'); return false;">Copy RTSP</a>
-      </div>
-    `;
-
-    // For HLS: use native <video> with HLS.js fallback
-    if (protocol === 'hls') {
-      setTimeout(() => initHLS(cam.path, `http://${server}:${PORTS.hls}/${cam.path}/index.m3u8`), 100);
-    }
-
-    // For WebRTC: check iframe loaded
-    if (protocol === 'webrtc') {
-      setTimeout(() => {
-        const statusEl = document.getElementById(`status-${cam.path}`);
-        if (statusEl) {
-          statusEl.textContent = 'Online';
-          statusEl.className = 'cam-status online';
-        }
-      }, 3000);
-    }
-
-    return card;
-  }
-
-  function initHLS(path, hlsUrl) {
-    const video = document.getElementById(`video-${path}`);
-    const statusEl = document.getElementById(`status-${path}`);
-    if (!video) return;
-
-    // Native HLS (Safari)
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = hlsUrl;
-      video.addEventListener('loadeddata', () => {
-        statusEl.textContent = 'Online';
-        statusEl.className = 'cam-status online';
-      });
-      video.addEventListener('error', () => {
-        statusEl.textContent = 'Offline';
-        statusEl.className = 'cam-status offline';
-      });
-      return;
-    }
-
-    // HLS.js fallback (Chrome, Firefox)
-    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
-      const hls = new Hls({
-        lowLatencyMode: true,
-        liveSyncDurationCount: 3,
-        liveMaxLatencyDurationCount: 5,
-      });
-      hls.loadSource(hlsUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play();
-        statusEl.textContent = 'Online';
-        statusEl.className = 'cam-status online';
-      });
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          statusEl.textContent = 'Offline';
-          statusEl.className = 'cam-status offline';
-        }
-      });
-    } else {
-      statusEl.textContent = 'Unsupported';
-      statusEl.className = 'cam-status offline';
-    }
-  }
-
-  function reloadAll() {
-    const grid = document.getElementById('grid');
-    grid.innerHTML = '';
-    if (CAMERAS.length === 0) {
-      grid.innerHTML = `
-        <div class="empty-state">
-          <h2>No cameras configured</h2>
-          <p>Edit the CAMERAS array in this file to add your camera paths.</p>
-        </div>`;
-      return;
-    }
-    CAMERAS.forEach(cam => grid.appendChild(createCamCard(cam)));
-    updateGrid();
-  }
-
-  function copyText(text) {
-    navigator.clipboard.writeText(text).then(() => alert('Copied: ' + text));
-  }
-
-  // Auto-detect server IP from current URL
-  window.addEventListener('DOMContentLoaded', () => {
-    const serverInput = document.getElementById('serverIp');
-    if (!serverInput.value) {
-      const host = window.location.hostname;
-      // file:// protocol gives empty hostname — default to localhost
-      serverInput.value = (!host || host === 'localhost') ? '127.0.0.1' : host;
-    }
-    reloadAll();
+async function apiPost(url, body) {
+  const resp = await fetch(API_BASE + url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
   });
-</script>
+  const data = await resp.json();
+  if (!data.success) throw new Error(data.error || 'API error');
+  return data.data;
+}
 
-<!-- HLS.js for non-Safari browsers (only needed for HLS mode) -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+async function apiDelete(url) {
+  const resp = await fetch(API_BASE + url, { method: 'DELETE' });
+  const data = await resp.json();
+  if (!data.success) throw new Error(data.error || 'API error');
+  return data.data;
+}
+
+// ============================================================
+// Camera Management
+// ============================================================
+async function loadCameras() {
+  try {
+    cameras = await apiGet('/api/streams');
+    if (!Array.isArray(cameras)) cameras = [];
+    updateGrid();
+    renderStats();
+  } catch (err) {
+    console.error('Failed to load cameras:', err);
+  }
+}
+
+async function addCamera() {
+  const urlInput = document.getElementById('inputUrl');
+  const nameInput = document.getElementById('inputName');
+  const errorEl = document.getElementById('addError');
+  const btn = document.getElementById('btnAdd');
+
+  const rtspUrl = urlInput.value.trim();
+  const name = nameInput.value.trim();
+
+  if (!rtspUrl) {
+    showError('Please enter an RTSP URL');
+    return;
+  }
+
+  errorEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Adding...';
+
+  try {
+    await apiPost('/api/streams', { rtspUrl, name, label: name || '' });
+    urlInput.value = '';
+    nameInput.value = '';
+    showToast('Camera added successfully', 'success');
+    await loadCameras();
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '+ Add';
+  }
+}
+
+async function deleteCamera(name) {
+  if (!confirm('Delete camera "' + name + '"?')) return;
+  try {
+    await apiDelete('/api/streams/' + encodeURIComponent(name));
+    showToast('Camera removed', 'success');
+    await loadCameras();
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('addError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(function() { el.style.display = 'none'; }, 5000);
+}
+
+// ============================================================
+// Rendering
+// ============================================================
+// Full render — only called on first load, protocol change, or after add/delete
+function renderGrid() {
+  const grid = document.getElementById('cameraGrid');
+  const protocol = document.getElementById('protocolSelect').value;
+
+  if (cameras.length === 0) {
+    grid.innerHTML = '<div class="empty-state">' +
+      '<div class="icon">📷</div>' +
+      '<h3>No cameras added</h3>' +
+      '<p>Enter an RTSP URL above to add your first camera stream.</p>' +
+      '</div>';
+    return;
+  }
+
+  grid.innerHTML = cameras.map(function(cam) {
+    return buildCardHtml(cam, protocol);
+  }).join('');
+}
+
+function buildCardHtml(cam, protocol) {
+  var webrtcUrl = 'http://' + serverHost + ':' + ports.webrtc + '/' + cam.name + '/';
+  var hlsUrl = 'http://' + serverHost + ':' + ports.hls + '/' + cam.name + '/';
+  var rtspUrl = 'rtsp://' + serverHost + ':' + ports.rtsp + '/' + cam.name;
+
+  var videoHtml;
+  if (cam.status === 'online') {
+    if (protocol === 'webrtc') {
+      videoHtml = '<iframe src="' + webrtcUrl + '" allow="autoplay; fullscreen"></iframe>';
+    } else {
+      videoHtml = '<iframe src="' + hlsUrl + '" allow="autoplay; fullscreen"></iframe>';
+    }
+  } else if (cam.status === 'connecting') {
+    videoHtml = '<div class="placeholder">⏳ Connecting to stream...</div>';
+  } else {
+    videoHtml = '<div class="placeholder">⚠️ Stream offline</div>';
+  }
+
+  return '<div class="cam-card" data-name="' + cam.name + '" data-status="' + cam.status + '">' +
+    '<div class="cam-header">' +
+      '<span class="cam-name">' +
+        '<span class="status-dot ' + cam.status + '"></span>' +
+        escapeHtml(cam.label || cam.name) +
+      '</span>' +
+      '<button class="btn btn-danger" onclick="deleteCamera(\'' + cam.name + '\')">✕ Remove</button>' +
+    '</div>' +
+    '<div class="cam-video">' + videoHtml + '</div>' +
+    '<div class="cam-footer">' +
+      '<div class="cam-links">' +
+        '<a href="' + webrtcUrl + '" target="_blank">WebRTC</a>' +
+        '<a href="' + hlsUrl + '" target="_blank">HLS</a>' +
+        '<span onclick="copyText(\'' + rtspUrl + '\')" title="Copy RTSP URL">📋 RTSP</span>' +
+      '</div>' +
+      '<span style="font-size:0.7rem;color:var(--text-muted)" title="' + escapeHtml(cam.rtspUrl) + '">' +
+        truncate(cam.rtspUrl, 40) +
+      '</span>' +
+    '</div>' +
+  '</div>';
+}
+
+// Smart update — only patches status dots and swaps placeholder/iframe when status changes.
+// NEVER destroys existing iframes, so video keeps playing smoothly.
+function updateGrid() {
+  const grid = document.getElementById('cameraGrid');
+  const protocol = document.getElementById('protocolSelect').value;
+  const existingCards = grid.querySelectorAll('.cam-card[data-name]');
+  const existingNames = new Set();
+
+  existingCards.forEach(function(card) { existingNames.add(card.getAttribute('data-name')); });
+
+  var newNames = new Set(cameras.map(function(c) { return c.name; }));
+
+  // If the camera list changed (add/remove), do a full re-render
+  if (existingNames.size !== newNames.size || cameras.length === 0) {
+    renderGrid();
+    return;
+  }
+  for (var name of existingNames) {
+    if (!newNames.has(name)) { renderGrid(); return; }
+  }
+  for (var name of newNames) {
+    if (!existingNames.has(name)) { renderGrid(); return; }
+  }
+
+  // Same set of cameras — only update status (no iframe destruction!)
+  cameras.forEach(function(cam) {
+    var card = grid.querySelector('.cam-card[data-name="' + cam.name + '"]');
+    if (!card) return;
+
+    var oldStatus = card.getAttribute('data-status');
+    var newStatus = cam.status;
+
+    // Update status dot class
+    var dot = card.querySelector('.status-dot');
+    if (dot) {
+      dot.className = 'status-dot ' + newStatus;
+    }
+
+    // Only touch the video area if status actually changed
+    if (oldStatus !== newStatus) {
+      card.setAttribute('data-status', newStatus);
+      var videoContainer = card.querySelector('.cam-video');
+      if (!videoContainer) return;
+
+      if (newStatus === 'online') {
+        var webrtcUrl = 'http://' + serverHost + ':' + ports.webrtc + '/' + cam.name + '/';
+        var hlsUrl = 'http://' + serverHost + ':' + ports.hls + '/' + cam.name + '/';
+        var streamUrl = protocol === 'webrtc' ? webrtcUrl : hlsUrl;
+        // Only replace if there's no iframe or iframe src is wrong
+        var existingIframe = videoContainer.querySelector('iframe');
+        if (!existingIframe) {
+          videoContainer.innerHTML = '<iframe src="' + streamUrl + '" allow="autoplay; fullscreen"></iframe>';
+        }
+      } else if (newStatus === 'connecting') {
+        videoContainer.innerHTML = '<div class="placeholder">⏳ Connecting to stream...</div>';
+      } else {
+        videoContainer.innerHTML = '<div class="placeholder">⚠️ Stream offline</div>';
+      }
+    }
+  });
+}
+
+function renderStats() {
+  var bar = document.getElementById('statsBar');
+  var total = cameras.length;
+  var online = cameras.filter(function(c) { return c.status === 'online'; }).length;
+  var connecting = cameras.filter(function(c) { return c.status === 'connecting'; }).length;
+  var offline = cameras.filter(function(c) { return c.status === 'offline'; }).length;
+
+  bar.innerHTML =
+    '<span><strong>' + total + '</strong> camera' + (total !== 1 ? 's' : '') + '</span>' +
+    '<span class="stat"><span class="dot online"></span> ' + online + ' online</span>' +
+    '<span class="stat"><span class="dot connecting"></span> ' + connecting + ' connecting</span>' +
+    '<span class="stat"><span class="dot offline"></span> ' + offline + ' offline</span>';
+}
+
+// ============================================================
+// Utilities
+// ============================================================
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.substring(0, len) + '...' : str;
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    showToast('Copied: ' + text, 'success');
+  }).catch(function() {
+    prompt('Copy this URL:', text);
+  });
+}
+
+function showToast(msg, type) {
+  type = type || 'success';
+  var existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  var el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { el.remove(); }, 3000);
+}
+
+// ============================================================
+// Event Listeners
+// ============================================================
+document.getElementById('gridSelect').addEventListener('change', function(e) {
+  var grid = document.getElementById('cameraGrid');
+  grid.className = 'grid cols-' + e.target.value;
+});
+
+document.getElementById('protocolSelect').addEventListener('change', function() {
+  renderGrid(); // Full re-render to swap iframe URLs on protocol change
+});
+
+document.getElementById('inputUrl').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addCamera();
+});
+document.getElementById('inputName').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addCamera();
+});
+
+// ============================================================
+// Initialization
+// ============================================================
+async function init() {
+  // Load port config from API
+  try {
+    var cfg = await apiGet('/api/config');
+    if (cfg.webrtcPort) ports.webrtc = cfg.webrtcPort;
+    if (cfg.hlsPort) ports.hls = cfg.hlsPort;
+    if (cfg.rtspPort) ports.rtsp = cfg.rtspPort;
+  } catch (err) {
+    console.warn('Could not load config, using defaults');
+  }
+
+  // Load cameras
+  await loadCameras();
+
+  // Auto-refresh every 5 seconds
+  refreshTimer = setInterval(loadCameras, 5000);
+}
+
+init();
+</script>
 
 </body>
 </html>
